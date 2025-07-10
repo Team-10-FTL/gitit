@@ -11,7 +11,6 @@ function App() {
     <>
 {/* Add the Auth component for testing */}
       <div className="auth">
-        <h2>🔐 Clerk Authentication Test</h2>
         <AuthComponent />
       </div>
     </>

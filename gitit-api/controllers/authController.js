@@ -2,9 +2,6 @@ const bcrypt = require("bcrypt")
 const prisma = require("../models/prismaClient")
 const jwt = require("jsonwebtoken")
 
-console.log("JWT_SECRET:", process.env.JWT_SECRET);
-console.log("NODE_ENV:", process.env.NODE_ENV);
-
 const hashPasswords = async(plainTextPassword) =>{
     const saltRounds = 10;
     const hash = await bcrypt.hash(plainTextPassword, saltRounds)
@@ -102,14 +99,14 @@ exports.createAdmin = async(req,res)=>{
 }
 
 exports.signup = async(req,res)=>{
-  const { username, email, password } = req.body;
+  const { userName, email, password } = req.body;
 
   try {
 
     const hashedPassword = await hashPasswords(password)
     const user = await prisma.User.create({ 
         data: {
-            userName: username, 
+            userName, 
             email,  
             password: hashedPassword,
             provider: "local",
@@ -117,8 +114,27 @@ exports.signup = async(req,res)=>{
     });
     console.log(user)
 
-    res.status(201).send("User successfully created")
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        userName: user.userName,
+        role: user.role,
+        provider: user.provider // Add this to distinguish auth sources
+      }, 
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
 
+    res.status(201).json({
+      message: "User successfully created",
+      token: token,
+      user: { 
+        id: user.id, 
+        userName: user.userName, 
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
     console.log(error.message)
     res.status(500).send("Error creating user")
@@ -175,3 +191,4 @@ exports.clerkSync = async (req, res) => {
     res.status(500).send("Error syncing user");
   }
 };
+

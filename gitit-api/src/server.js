@@ -7,21 +7,24 @@ app.use(cors())
 app.use(express.json())
 
 const authRoutes = require("../routes/authRoute");
-const protectedRoutes = require("../routes/protected");
+const userRoutes = require("../routes/userRouter")
+
+// const protectedRoutes = require("../routes/protected");
 
 app.use("/auth", authRoutes); 
-app.use("/api", protectedRoutes);  
+app.use("/user", userRoutes)
+// app.use("/api", protectedRoutes);  
 
 
 const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  try {
-    res.send("Hello World");
-  } catch (error) {
-    console.log(error.message);
-  }
-});
+// app.get("/", (req, res) => {
+//   try {
+//     res.send("Hello World");
+//   } catch (error) {
+//     console.log(error.message);
+//   }
+// });
 
 
 

@@ -1,5 +1,5 @@
 import { useUser, useClerk } from '@clerk/clerk-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import "./Auth.css"
 function AuthComponent() {
   const { user } = useUser()
@@ -12,7 +12,37 @@ function AuthComponent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [localUser, setLocalUser] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
+
+  const API_URL = import.meta.env.VITE_API_URL
+
+
+  useEffect(() => {
+  const restoreSession = () => {
+    const token = localStorage.getItem('authToken')
+    const userData = localStorage.getItem('userData')
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData)
+        setLocalUser(user)
+      } catch (e) {
+        // Handle invalid stored data
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('userData')
+      }
+    }
+    setIsLoading(false)
+  }
+  
+  restoreSession()
+}, [])
+
+// Show loading state while checking for session
+if (isLoading) {
+  return <div>Loading session...</div>
+}
   // Check if user is logged in (either locally or via Clerk)
   if (user || localUser) {
     const displayUser = user || localUser
@@ -20,6 +50,7 @@ function AuthComponent() {
       <div style={{ padding: '20px', color: 'white' }}>
         <h2>✅ Logged in as: {displayUser.username || displayUser.email}</h2>
         <p>Auth Type: {user ? 'OAuth (Clerk)' : 'Local Database'}</p>
+        <p>Account Role: {displayUser?.role || 'USER'}</p>
         {user && <p>Clerk ID: {user.id}</p>}
         {localUser && <p>Local ID: {localUser.id}</p>}
         <button 
@@ -27,6 +58,8 @@ function AuthComponent() {
             if (user) {
               await user.delete()
             }
+            localStorage.removeItem('authToken')
+            localStorage.removeItem('userData')
             setLocalUser(null)
             window.location.reload()
           }}
@@ -41,6 +74,7 @@ function AuthComponent() {
         >
           Sign Out
         </button>
+
       </div>
     )
   }
@@ -54,16 +88,23 @@ function AuthComponent() {
       const endpoint = isSignUp ? '/auth/signup' : '/auth/login'
       console.log(`🔄 ${isSignUp ? 'Creating' : 'Logging in'} local account...`)
       
+      const requestBody = isSignUp 
+        ? { 
+            userName: username, 
+            email: email,      // Include email only for signup
+            password: password
+          }
+        : {
+            username: username,  // Only username and password for login
+            password: password
+          };
+      
       const response = await fetch(`http://localhost:5000${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userName: username,
-          email: email,
-          password: password
-        })
+        body: JSON.stringify(requestBody)
       })
       
       if (response.ok) {
@@ -74,13 +115,20 @@ function AuthComponent() {
         setLocalUser({
           id: result.user?.id,
           username: result.user?.userName,
-          email: result.user?.email
+          email: result.user?.email,
+          role:  result.user?.role
         })
         
         // Store JWT token if provided
-        if (result.token) {
-          localStorage.setItem('authToken', result.token)
-        }
+      if (result.token) {
+        localStorage.setItem('authToken', result.token)
+        localStorage.setItem('userData', JSON.stringify({
+          id: result.user?.id,
+          username: result.user?.userName,
+          email: result.user?.email,
+          role: result.user?.role // Store the role for admin checks
+        }))
+      }
         
       } else {
         const errorText = await response.text()
@@ -129,7 +177,6 @@ function AuthComponent() {
       </div>
 
       {authMode === 'local' ? (
-        // Local Username/Password Form
         <form onSubmit={handleLocalAuth}>
           <h2 style={{ color: 'white' }}>
             {isSignUp ? '📝 Create Local Account' : '🔑 Local Sign In'}
@@ -183,6 +230,7 @@ function AuthComponent() {
               }}
             />
           </div>
+          
           
           <div style={{ marginBottom: '15px' }}>
             <input
@@ -244,7 +292,7 @@ function AuthComponent() {
           </button>
         </form>
       ) : (
-        // OAuth Options
+
         <div>
           <h2 style={{ color: 'white', textAlign: 'center' }}>🔗 OAuth Sign In</h2>
           
